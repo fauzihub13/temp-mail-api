@@ -1,7 +1,6 @@
 """Temp Mail API — minimal IMAP-based email viewer.
 
 Endpoints:
-  GET /inbox                   — list all inbox emails (today only, last 10)
   GET /inbox/{email}           — list emails for specific address (today only)
   GET /inbox/{email}/{uid}     — email detail
   GET /health                  — health check
@@ -230,49 +229,6 @@ def _fetch_email(target_email: str, uid: str) -> dict:
             pass
 
 
-def _read_inbox(host: str, port: int, user: str, password: str, folder: str, limit: int) -> list[dict]:
-    """Read all emails from IMAP inbox (today only)."""
-    imap = _connect(host=host, port=port, user=user, password=password)
-    try:
-        imap.select(folder, readonly=True)
-
-        # Server-side filter: only today's emails
-        today = _today_imap_search()
-        _, msg_data = imap.search(None, f'SINCE "{today}"')
-        msg_ids = msg_data[0].split()
-        if not msg_ids:
-            return []
-
-        results = []
-        scan_ids = list(reversed(msg_ids[-limit:]))
-
-        for msg_id in scan_ids:
-            try:
-                _, raw = imap.fetch(msg_id, "(RFC822 FLAGS)")
-                if not raw or not raw[0]:
-                    continue
-
-                msg = email_lib.message_from_bytes(raw[0][1])
-                flags_raw = raw[1].decode() if isinstance(raw[1], bytes) else str(raw[1])
-                seen = "\\Seen" in flags_raw
-
-                uid = msg_id.decode() if isinstance(msg_id, bytes) else str(msg_id)
-                body = _msg_body(msg)
-
-                entry = _msg_to_dict(msg, uid, body)
-                entry["seen"] = seen
-                results.append(entry)
-            except Exception:
-                continue
-
-        return results
-    finally:
-        try:
-            imap.logout()
-        except Exception:
-            pass
-
-
 # ── Routes ──────────────────────────────────────────────────────────────────
 
 @app.get("/health")
@@ -336,32 +292,6 @@ def get_email_detail(email: str, uid: str):
             status_code=500,
             content={"error": True, "message": str(e), "code": 500}
         )
-
-
-@app.get("/inbox")
-def get_all_inbox(limit: int = Query(default=10, le=100, description="Max emails to fetch")):
-    """Read all inbox emails (today only). Uses IMAP credentials from .env."""
-    try:
-        emails = _read_inbox(
-            host=IMAP_HOST,
-            port=IMAP_PORT,
-            user=IMAP_USER,
-            password=IMAP_PASS,
-            folder=IMAP_FOLDER,
-            limit=limit,
-        )
-        return {
-            "host": IMAP_HOST,
-            "folder": IMAP_FOLDER,
-            "count": len(emails),
-            "emails": emails,
-        }
-    except socket.timeout:
-        raise HTTPException(504, detail="IMAP connection timeout")
-    except imaplib.IMAP4.error as e:
-        raise HTTPException(502, detail=f"IMAP error: {e}")
-    except Exception as e:
-        raise HTTPException(500, detail=str(e))
 
 
 if __name__ == "__main__":

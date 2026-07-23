@@ -53,39 +53,6 @@ curl http://localhost:8000/health
 
 ---
 
-### `GET /inbox`
-
-List semua email di inbox hari ini (10 terakhir default). Pakai credentials dari `.env`.
-
-| Param | Type | Default | Keterangan |
-|---|---|---|---|
-| `limit` | query | `10` | Max emails (maks 100) |
-
-```bash
-curl http://localhost:8000/inbox
-curl http://localhost:8000/inbox?limit=20
-```
-
-```json
-{
-  "host": "imap.gmail.com",
-  "folder": "INBOX",
-  "count": 2,
-  "emails": [
-    {
-      "uid": "1236",
-      "from": "info@account.netflix.com",
-      "to": "mad_e8x2a@mpruy.my.id",
-      "date": "2026-07-23T07:23:23+00:00",
-      "body": "Tap the link to create your account...",
-      "seen": false
-    }
-  ]
-}
-```
-
----
-
 ### `GET /inbox/{email}`
 
 List email yang dikirim ke address tersebut hari ini (newest first).
