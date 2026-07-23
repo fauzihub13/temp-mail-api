@@ -33,10 +33,28 @@ IMAP_PASS = os.getenv("IMAP_PASS", "")
 IMAP_FOLDER = os.getenv("IMAP_FOLDER", "INBOX")
 IMAP_TIMEOUT = int(os.getenv("IMAP_TIMEOUT", "30"))
 
-app = FastAPI(title="Temp Mail API", version="1.2.0")
+# Allowed domains (comma separated). Empty = all domains allowed
+_raw_domains = os.getenv("ALLOWED_DOMAINS", "")
+ALLOWED_DOMAINS: set[str] = {d.strip().lower() for d in _raw_domains.split(",") if d.strip()}
+
+app = FastAPI(title="Temp Mail API", version="1.3.0")
 
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
+
+def _get_domain(email: str) -> str:
+    """Extract domain from email address."""
+    parts = email.lower().strip().split("@")
+    return parts[1] if len(parts) == 2 else ""
+
+
+def _is_domain_allowed(email: str) -> bool:
+    """Check if email domain is in allowed list. Empty list = all allowed."""
+    if not ALLOWED_DOMAINS:
+        return True
+    domain = _get_domain(email)
+    return domain in ALLOWED_DOMAINS
+
 
 def _connect(host: str = None, port: int = None, user: str = None, password: str = None) -> imaplib.IMAP4_SSL:
     """Connect to IMAP with timeout."""
@@ -265,6 +283,11 @@ def health():
 @app.get("/inbox/{email}")
 def get_inbox(email: str, limit: int = Query(default=50, le=200)):
     """List emails for address (today only, newest first)."""
+    if not _is_domain_allowed(email):
+        return JSONResponse(
+            status_code=404,
+            content={"error": True, "message": f"Domain '{_get_domain(email)}' not allowed", "code": 404}
+        )
     try:
         emails = _search_emails(email, limit=limit)
         return {"email": email, "count": len(emails), "emails": emails}
@@ -279,6 +302,11 @@ def get_inbox(email: str, limit: int = Query(default=50, le=200)):
 @app.get("/inbox/{email}/{uid}")
 def get_email_detail(email: str, uid: str):
     """Get email detail."""
+    if not _is_domain_allowed(email):
+        return JSONResponse(
+            status_code=404,
+            content={"error": True, "message": f"Domain '{_get_domain(email)}' not allowed", "code": 404}
+        )
     try:
         detail = _fetch_email(email, uid)
         return detail

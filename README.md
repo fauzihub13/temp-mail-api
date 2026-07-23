@@ -18,6 +18,9 @@ IMAP_USER=your_email@gmail.com
 IMAP_PASS=your_app_password
 IMAP_FOLDER=INBOX
 IMAP_TIMEOUT=30
+
+# Allowed domains (comma separated). Empty = all domains allowed
+ALLOWED_DOMAINS=mpruy.my.id,example.com
 ```
 
 Gmail: pakai [App Password](https://myaccount.google.com/apppasswords), bukan password biasa. Enable IMAP di Settings.
@@ -174,6 +177,7 @@ curl http://localhost:8000/inbox/test@domain.com/1231
 | `IMAP_PASS` | - | IMAP password / app password |
 | `IMAP_FOLDER` | `INBOX` | Mailbox folder name |
 | `IMAP_TIMEOUT` | `30` | Koneksi timeout (detik) |
+| `ALLOWED_DOMAINS` | - | Domain yang diizinkan (comma separated). Kosongkan = semua domain |
 
 ## Error Codes
 
