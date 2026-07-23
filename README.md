@@ -184,3 +184,89 @@ curl http://localhost:8000/inbox/test@domain.com/1231
 | 408 | Connection timeout |
 | 502 | IMAP connection error |
 | 500 | Internal server error |
+
+---
+
+## Cloudflare Email Routing Setup
+
+Arsitektur: **Domain (Cloudflare) → Forward ke Gmail → API baca via IMAP**
+
+### 1. Siapkan Domain
+
+- Domain aktif di Cloudflare (bisa beli di Cloudflare atau transfer)
+- Nameserver pointing ke Cloudflare
+
+### 2. Aktifkan Email Routing
+
+1. Login [Cloudflare Dashboard](https://dash.cloudflare.com)
+2. Pilih domain kamu
+3. Menu **Email** → **Email Routing**
+4. Ktab **Get Started**
+5. Cloudflare otomatis tambah MX records:
+   ```
+   Type: MX
+   Name: @
+   	mail-forwarding.cloudflare.net
+   Priority: 47
+   ```
+
+### 3. Tambah Destination Address
+
+1. Tab **Routing Rules**
+2. Klik **Add catch-all address**
+3. Masukkan email Gmail kamu (misal: `your_email@gmail.com`)
+4. Gmail dapat email verifikasi → klik konfirmasi
+5. Status jadi **Active**
+
+**Hasil:** Semua email ke `*@your_domain.com` masuk ke Gmail.
+
+### 4. Setup Gmail App Password
+
+1. Buka [Google App Passwords](https://myaccount.google.com/apppasswords)
+2. Pilih app: **Mail**, device: **Other** → kasih nama "temp-mail-api"
+3. Klik **Generate**
+4. Copy 16-char password (misal: `abcd efgh ijkl mnop`)
+5. Masukkan ke `.env`:
+   ```ini
+   IMAP_USER=your_email@gmail.com
+   IMAP_PASS=abcdefghijklmnop
+   ```
+
+### 5. Enable Gmail IMAP
+
+1. Gmail → Settings → See all settings → **Forwarding and POP/IMAP**
+2. **IMAP Access** → Enable IMAP
+3. Save Changes
+
+### 6. Verifikasi DNS Records
+
+Pastikan records ini ada di Cloudflare DNS:
+
+| Type | Name | Content | Proxy |
+|---|---|---|---|
+| MX | @ | `route1.mx.cloudflare.net` | N/A |
+| MX | @ | `route2.mx.cloudflare.net` | N/A |
+| MX | @ | `route3.mx.cloudflare.net` | N/A |
+
+### 7. Test
+
+```bash
+# Kirim test email ke random address di domain kamu
+# Contoh: test123@your_domain.com
+
+# Lalu cek via API
+curl http://localhost:8000/inbox/test123@your_domain.com
+```
+
+### Alur Email
+
+```
+Sender → Cloudflare (MX) → Gmail inbox → API (IMAP) → Response JSON
+```
+
+### Tips
+
+- **Catch-all** = semua email ke domain diterima, tidak perlu buat mailbox manual
+- **Gmail limit** ~500 email/hari untuk free account
+- **Cloudflare Email Routing** gratis, unlimited
+- Bisa tambah **Email Workers** untuk custom logic (filter, transform, dll)
